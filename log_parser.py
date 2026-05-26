@@ -1,4 +1,8 @@
+import os
 import re
+
+if os.path.exists("results.txt"):
+    os.remove("results.txt")
 
 # Open the file and start parsing
 with open(r"/var/log/auth.log") as logFile:  # CHANGE THIS TO YOUR LOG FILE PATH
@@ -30,7 +34,7 @@ with open(r"/var/log/auth.log") as logFile:  # CHANGE THIS TO YOUR LOG FILE PATH
                     hostRecords.append({"username": username, "failure count": 1})
 
         # Checks for failed login attempts on ssh servers
-        if re.search("\sFailed password\s", line) is not None:
+        if re.search(r"\sFailed password\s", line) is not None:
             # First extract the user, ip address, and port from the failed ssh login
             line_components = line.split(" ")
             username = line_components[8]
@@ -60,8 +64,31 @@ with open(r"/var/log/auth.log") as logFile:  # CHANGE THIS TO YOUR LOG FILE PATH
                     }
                 )
 
-    # This portion is for flagging host and ssh login fails
+    # This portion is for flagging host/ssh login fails and writes those flagged to a text file
+    with open("results.txt", "x") as resultsFile:
+        resultsFile.write("-----Suspicious host user login attempts-----\n")
+        for record in hostRecords:
+            if record["failure count"] >= 5:
+                resultsFile.write(
+                    "Username: "
+                    + record["username"]
+                    + ", Failed Login Attempts: "
+                    + str(record["failure count"])
+                    + "\n"
+                )
 
-    # Prints the host that failed thier login attempts and the number of times it has happened
-    print(hostRecords)
-    print(sshRecords)
+        resultsFile.write("\n-----Suspicious ssh login attempts-----\n")
+        s = ","
+        for record in sshRecords:
+            if record["failure count"] >= 5:
+                resultsFile.write(
+                    "IP Address: "
+                    + record["ip_address"]
+                    + ", Failed Login Attempts: "
+                    + str(record["failure count"])
+                    + ", Usernames: ["
+                    + s.join(record["usernames"])
+                    + "], Ports: "
+                    + s.join(record["port"])
+                    + "\n"
+                )
